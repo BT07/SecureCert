@@ -10,7 +10,9 @@ import (
 	"strings"
 	"time"
 )
-
+const (
+	BU="Blockcoderz"
+)
 // SimpleChaincode example simple Chaincode implementation
 type SimpleChaincode struct {
 }
@@ -245,8 +247,8 @@ func (t *SimpleChaincode) addCert(stub shim.ChaincodeStubInterface, args []strin
 }
 
 // ===============================================
-// readStudent - read a certificate from chaincode state
-func (t *SimpleChaincode) readStudent(stub shim.ChaincodeStubInterface, arg string) pb.Response {
+// readCert - read a certificate from chaincode state
+func (t *SimpleChaincode) readCert(stub shim.ChaincodeStubInterface, arg string) pb.Response {
 	var name, jsonResp string
 	var err error
 
@@ -260,8 +262,47 @@ func (t *SimpleChaincode) readStudent(stub shim.ChaincodeStubInterface, arg stri
 		jsonResp = "{\"Error\":\"Failed to get state for " + name + "\"}"
 		return shim.Error(jsonResp)
 	} else if valAsbytes == nil {
-		jsonResp = "{\"Error\":\"Student does not exist: " + name + "\"}"
+		jsonResp = "{\"Error\":\"Certificate does not exist: " + name + "\"}"
 		return shim.Error(jsonResp)
 	}
 	return shim.Success(valAsbytes)
+}
+
+// ========================================================================
+// transferCert - transfer ownership of cert from BlockCoderz to Student
+func (t *SimpleChaincode) transferCert(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+
+	//   0       1
+	// "Seatno", "SName"
+	if len(args) < 2 {
+		return shim.Error("Incorrect number of arguments. Expecting 2")
+	}
+
+	Seatno := args[0]
+	SName := args[1]
+	
+	fmt.Println("- start transferCert ",BU, Seatno, SName)
+
+	certAsBytes, err := stub.GetState(Seatno)
+	if err != nil {
+		return shim.Error("Failed to get Certificate:" + err.Error())
+	} else if certAsBytes == nil {
+		return shim.Error("Certificate does not exist")
+	}
+
+	certToTransfer := cert{}
+	err = json.Unmarshal(certAsBytes, &certToTransfer) //unmarshal it aka JSON.parse()
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	certToTransfer.Student_Name = SName //change the owner
+
+	certJSONasBytes, _ := json.Marshal(certToTransfer)
+	err = stub.PutState(Seatno, certJSONasBytes) //rewrite the certificate
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+
+	fmt.Println("- end transferCert (success)")
+	return shim.Success(nil)
 }
