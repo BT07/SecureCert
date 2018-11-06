@@ -1,24 +1,22 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	pb "github.com/hyperledger/fabric/protos/peer"
-	"strconv"
-	"strings"
-	"time"
 )
+
 const (
-	BU="Blockcoderz"
+	BU = "Blockcoderz"
 )
+
 // SimpleChaincode example simple Chaincode implementation
 type SimpleChaincode struct {
 }
 
 type student struct {
-	PR_no             int    `json:"PR_no"`
+	PR_no             string `json:"PR_no"`
 	First_Name        string `json:"First_Name"`
 	Middle_Name       string `json:"Middle_Name "`
 	Last_Name         string `json:"Last_Name"`
@@ -26,11 +24,11 @@ type student struct {
 	Branch            string `json:"Branch"`
 	Year_Of_Admission string `json:"Year_Of_Admission"`
 	Email_Id          string `json:"Email_Id"`
-	Mobile            int    `json:"Mobile"`
+	Mobile            string `json:"Mobile"`
 }
 
 type cert struct {
-	PR_no           int    `json:"PR_no"`
+	PR_no           string `json:"PR_no"`
 	Student_Name    string `json:"Student_Name"`
 	College_Name    string `json:"College_Name"`
 	Seat_no         string `json:"Seat_no"`
@@ -42,7 +40,7 @@ type cert struct {
 // ===========================
 // main function starts up the chaincode in the container during instantiate
 func main() {
-	if err := shim.Start(new(SimpleAsset)); err != nil {
+	if err := shim.Start(new(SimpleChaincode)); err != nil {
 		fmt.Printf("Error starting SimpleAsset chaincode: %s", err)
 	}
 }
@@ -77,7 +75,7 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 
 // ========================================
 // add student details
-// PR_no(int),First_Name,Middle_Name,Last_Name,College_Name,Branch,Year_Of_Admission,Email_Id,Mobile(int)
+// PR_no,First_Name,Middle_Name,Last_Name,College_Name,Branch,Year_Of_Admission,Email_Id,Mobile
 func (t *SimpleChaincode) addStudent(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 
 	if len(args) != 9 {
@@ -114,10 +112,7 @@ func (t *SimpleChaincode) addStudent(stub shim.ChaincodeStubInterface, args []st
 		return shim.Error("9 argument must be a non-empty string")
 	}
 
-	PRno, err := strconv.Atoi(args[0])
-	if err != nil {
-		return shim.Error("1 argument must be a numeric string")
-	}
+	PRno := args[0]
 	FName := args[1]
 	MName := args[2]
 	LName := args[3]
@@ -125,10 +120,7 @@ func (t *SimpleChaincode) addStudent(stub shim.ChaincodeStubInterface, args []st
 	branch := args[5]
 	YOA := args[6]
 	EId := args[7]
-	mobile, err := strconv.Atoi(args[8])
-	if err != nil {
-		return shim.Error("9 argument must be a numeric string")
-	}
+	mobile := args[8]
 
 	// ==== Check if Student already exists ====
 	studentAsBytes, err := stub.GetState(PRno)
@@ -159,15 +151,15 @@ func (t *SimpleChaincode) addStudent(stub shim.ChaincodeStubInterface, args []st
 
 // ===============================================
 // readStudent - read a Student from chaincode state
-func (t *SimpleChaincode) readStudent(stub shim.ChaincodeStubInterface, arg string) pb.Response {
+func (t *SimpleChaincode) readStudent(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	var name, jsonResp string
 	var err error
 
-	if len(arg) <= 0 {
+	if len(args) <= 0 {
 		return shim.Error("Incorrect number of arguments. Expecting name of the name to query")
 	}
 
-	name = arg
+	name = args[0]
 	valAsbytes, err := stub.GetState(name)
 	if err != nil {
 		jsonResp = "{\"Error\":\"Failed to get state for " + name + "\"}"
@@ -180,11 +172,11 @@ func (t *SimpleChaincode) readStudent(stub shim.ChaincodeStubInterface, arg stri
 }
 
 // add certificate details
-//PR_no(int),Student_Name,Seat_no,Examination,Year_Of_Passing,Sub
+//PR_no,Student_Name,Seat_no,College_Name,Examination,Year_Of_Passing,Sub
 func (t *SimpleChaincode) addCert(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 
-	if len(args) != 6 {
-		return shim.Error("Incorrect number of arguments. Expecting 9")
+	if len(args) != 7 {
+		return shim.Error("Incorrect number of arguments. Expecting 7")
 	}
 
 	// ==== Input sanitation ====
@@ -207,16 +199,16 @@ func (t *SimpleChaincode) addCert(stub shim.ChaincodeStubInterface, args []strin
 	if len(args[5]) <= 0 {
 		return shim.Error("6 argument must be a non-empty string")
 	}
-
-	PRno, err := strconv.Atoi(args[0])
-	if err != nil {
-		return shim.Error("1 argument must be a numeric string")
+	if len(args[6]) <= 0 {
+		return shim.Error("7 argument must be a non-empty string")
 	}
+	PRno := args[0]
 	SName := args[1]
-	Seatno := args[2]
-	examination := args[3]
-	YOP := args[4]
-	sub := args[5]
+	CName := args[2]
+	Seatno := args[3]
+	examination := args[4]
+	YOP := args[5]
+	sub := args[6]
 
 	// ==== Check if certificate already exists ====
 	certAsBytes, err := stub.GetState(Seatno)
@@ -228,7 +220,7 @@ func (t *SimpleChaincode) addCert(stub shim.ChaincodeStubInterface, args []strin
 	}
 
 	// ==== Create certificate object and marshal to JSON ====
-	cert := &cert{PRno, SName, Seatno, examination, YOP, sub}
+	cert := &cert{PRno, SName, CName, Seatno, examination, YOP, sub}
 
 	certJSONasBytes, err := json.Marshal(cert)
 	if err != nil {
@@ -247,22 +239,22 @@ func (t *SimpleChaincode) addCert(stub shim.ChaincodeStubInterface, args []strin
 }
 
 // ===============================================
-// readCert - read a certificate from chaincode state
-func (t *SimpleChaincode) readCert(stub shim.ChaincodeStubInterface, arg string) pb.Response {
+// readcert - read a certificate from chaincode state
+func (t *SimpleChaincode) readCert(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	var name, jsonResp string
 	var err error
 
-	if len(arg) <= 0 {
+	if len(args) <= 0 {
 		return shim.Error("Incorrect number of arguments. Expecting name of the name to query")
 	}
 
-	name = arg
+	name = args[0]
 	valAsbytes, err := stub.GetState(name)
 	if err != nil {
 		jsonResp = "{\"Error\":\"Failed to get state for " + name + "\"}"
 		return shim.Error(jsonResp)
 	} else if valAsbytes == nil {
-		jsonResp = "{\"Error\":\"Certificate does not exist: " + name + "\"}"
+		jsonResp = "{\"Error\":\"Student does not exist: " + name + "\"}"
 		return shim.Error(jsonResp)
 	}
 	return shim.Success(valAsbytes)
@@ -280,8 +272,8 @@ func (t *SimpleChaincode) transferCert(stub shim.ChaincodeStubInterface, args []
 
 	Seatno := args[0]
 	SName := args[1]
-	
-	fmt.Println("- start transferCert ",BU, Seatno, SName)
+
+	fmt.Println("- start transferCert ", BU, Seatno, SName)
 
 	certAsBytes, err := stub.GetState(Seatno)
 	if err != nil {
