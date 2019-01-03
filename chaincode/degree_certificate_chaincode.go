@@ -297,4 +297,5 @@ func (t *SimpleChaincode) transferCert(stub shim.ChaincodeStubInterface, args []
 
 	fmt.Println("- end transferCert (success)")
 	return shim.Success(nil)
+	
 }
